@@ -1,347 +1,235 @@
-/* === 1. RESET & BASE LAYOUT === */
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+// --- VARIABLES ---
+let score1 = 90;
+let score2 = 79;
+let fouls1 = 1;
+let fouls2 = 0;
+
+// Game Clock Variables
+let gameMin = 12;
+let gameSec = 0;
+let gameInterval = null;
+let isGameRunning = false;
+
+// Shot Clock Variables
+let shotClockTime = 24;
+let shotClockInterval = null;
+let isShotClockRunning = false;
+
+// --- DOM ELEMENTS ---
+const elScore1 = document.getElementById('score-1');
+const elScore2 = document.getElementById('score-2');
+const elFouls1 = document.getElementById('fouls-1');
+const elFouls2 = document.getElementById('fouls-2');
+
+const elGameClock = document.getElementById('game-clock-display');
+const elShotClock = document.getElementById('shot-clock');
+const btnGameToggle = document.getElementById('btn-game-toggle');
+
+// --- SCORE FUNCTIONS ---
+function updateScore(team, amount) {
+    if (team === 1) {
+        score1 += amount;
+        if (score1 < 0) score1 = 0;
+        elScore1.innerText = score1;
+    } else if (team === 2) {
+        score2 += amount;
+        if (score2 < 0) score2 = 0;
+        elScore2.innerText = score2;
+    }
 }
 
-body {
-    /* Dark background to simulate editing software/OBS */
-    background-color: #121212; 
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    font-family: 'Roboto Condensed', sans-serif;
-    padding: 40px 0;
+// --- FOUL FUNCTIONS (NEW) ---
+function updateFouls(team, amount) {
+    if (team === 1) {
+        fouls1 += amount;
+        if (fouls1 < 0) fouls1 = 0; // No negative fouls
+        elFouls1.innerText = fouls1;
+    } else if (team === 2) {
+        fouls2 += amount;
+        if (fouls2 < 0) fouls2 = 0;
+        elFouls2.innerText = fouls2;
+    }
 }
 
-.main-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 50px; /* Space between scoreboard and controls */
+// --- TIMEOUT FUNCTIONS (NEW) ---
+function toggleTimeout(team, index) {
+    // Construct the ID string (e.g., "t1-0")
+    const id = "t" + team + "-" + index;
+    const el = document.getElementById(id);
+    
+    // Toggle the 'active' class
+    if (el.classList.contains('active')) {
+        el.classList.remove('active');
+    } else {
+        el.classList.add('active');
+    }
 }
 
-/* === 2. THE SCOREBOARD (The "Intended Design") === */
-.scoreboard {
-    display: flex;
-    width: 600px; /* Fixed width for standard aspect ratio */
-    height: 110px;
-    background: #000;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-    overflow: hidden; /* Ensures rounded corners if added */
-    user-select: none; /* Prevents highlighting text */
-    border: 1px solid #333;
+// --- STYLE UPDATE FUNCTION ---
+function updateTeamStyle(teamNum) {
+    const urlInput = document.getElementById(`input-url-${teamNum}`).value;
+    const colorInput = document.getElementById(`input-color-${teamNum}`).value;
+    const imgElement = document.getElementById(`team-img-${teamNum}`);
+    const rowElement = document.getElementById(`team-row-${teamNum}`);
+
+    if (urlInput.trim() !== "") {
+        imgElement.src = urlInput;
+    }
+    
+    rowElement.style.background = `linear-gradient(90deg, ${colorInput} 0%, #000 100%)`;
 }
 
-/* --- TEAMS COLUMN (Left) --- */
-.teams-wrapper {
-    display: flex;
-    flex-direction: column;
-    width: 320px; /* Majority of width */
+// --- GAME CLOCK FUNCTIONS ---
+function updateGameClockDisplay() {
+    let m = gameMin;
+    let s = gameSec < 10 ? "0" + gameSec : gameSec;
+    elGameClock.innerText = m + ":" + s;
 }
 
-.team-row {
-    flex: 1; /* 50% Height each */
-    display: flex;
-    align-items: center;
-    padding: 0 15px;
-    position: relative;
-    transition: background 0.3s ease;
+function toggleGameClock() {
+    if (isGameRunning) {
+        clearInterval(gameInterval);
+        isGameRunning = false;
+        btnGameToggle.innerText = "Start Game";
+        btnGameToggle.style.backgroundColor = "#4CAF50"; 
+    } else {
+        isGameRunning = true;
+        btnGameToggle.innerText = "Pause Game";
+        btnGameToggle.style.backgroundColor = "#f0ad4e"; 
+        
+        gameInterval = setInterval(() => {
+            if (gameSec === 0) {
+                if (gameMin === 0) {
+                    stopAllClocks();
+                    return;
+                }
+                gameMin--;
+                gameSec = 59;
+            } else {
+                gameSec--;
+            }
+            updateGameClockDisplay();
+        }, 1000);
+    }
 }
 
-/* Default Colors (If not overridden by JS) */
-.warriors {
-    background: linear-gradient(90deg, #002b5c 0%, #003da5 100%);
-    border-bottom: 1px solid rgba(0,0,0,0.2);
+function setGameTime() {
+    const inMin = document.getElementById('input-min').value;
+    const inSec = document.getElementById('input-sec').value;
+    
+    gameMin = parseInt(inMin);
+    gameSec = parseInt(inSec);
+    
+    if(gameSec > 59) gameSec = 59;
+    if(gameMin < 0) gameMin = 0;
+
+    updateGameClockDisplay();
 }
 
-.bulls {
-    background: linear-gradient(90deg, #5c0015 0%, #ce1141 100%);
+// --- SHOT CLOCK FUNCTIONS ---
+function updateShotClockDisplay() {
+    elShotClock.innerText = ":" + (shotClockTime < 10 ? "0" + shotClockTime : shotClockTime);
+    if (shotClockTime <= 5) {
+        elShotClock.classList.add('low-time');
+    } else {
+        elShotClock.classList.remove('low-time');
+    }
 }
 
-/* Logos */
-.logo-box {
-    width: 60px;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+function toggleShotClock() {
+    if (isShotClockRunning) {
+        clearInterval(shotClockInterval);
+        isShotClockRunning = false;
+    } else {
+        isShotClockRunning = true;
+        shotClockInterval = setInterval(() => {
+            if (shotClockTime > 0) {
+                shotClockTime--;
+                updateShotClockDisplay();
+            } else {
+                clearInterval(shotClockInterval);
+                isShotClockRunning = false;
+            }
+        }, 1000);
+    }
 }
 
-.logo-box img {
-    height: 45px;
-    width: auto;
-    filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.3));
+function resetShotClock(seconds) {
+    clearInterval(shotClockInterval);
+    isShotClockRunning = false;
+    shotClockTime = seconds;
+    updateShotClockDisplay();
 }
 
-/* Scores */
-.score-box {
-    flex-grow: 1;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end; /* Push to right */
-    justify-content: center;
-    padding-right: 15px;
+// --- GLOBAL UTILS ---
+function stopAllClocks() {
+    clearInterval(gameInterval);
+    clearInterval(shotClockInterval);
+    isGameRunning = false;
+    isShotClockRunning = false;
+    btnGameToggle.innerText = "Start Game";
+    btnGameToggle.style.backgroundColor = "#4CAF50";
 }
 
-.score {
-    font-family: 'Russo One', sans-serif;
-    font-size: 44px;
-    color: #fff;
-    line-height: 0.9;
-    text-shadow: 2px 2px 0px rgba(0,0,0,0.4);
-    z-index: 2;
+// Initialize
+updateGameClockDisplay();
+updateShotClockDisplay();
+
+// --- NEW GAME RESET FUNCTION ---
+function resetNewGame() {
+    // 1. Safety Check: Ask user to confirm
+    if (!confirm("Start a New Game? This will reset all scores and clocks.")) {
+        return; // Stop if they click Cancel
+    }
+
+    // 2. Stop all timers
+    stopAllClocks();
+
+    // 3. Reset Scores
+    score1 = 0;
+    score2 = 0;
+    elScore1.innerText = "0";
+    elScore2.innerText = "0";
+
+    // 4. Reset Fouls
+    fouls1 = 0;
+    fouls2 = 0;
+    elFouls1.innerText = "0";
+    elFouls2.innerText = "0";
+
+    // 5. Reset Clocks
+    gameMin = 12;
+    gameSec = 0;
+    shotClockTime = 24;
+    updateGameClockDisplay();
+    updateShotClockDisplay();
+
+    
+
+    // 6. Reset Timeouts (Remove 'active' class from all dashes)
+    // We select all elements with class 'dash' and remove 'active'
+    const allDashes = document.querySelectorAll('.dash');
+    allDashes.forEach(dash => {
+        dash.classList.remove('active');
+    });
 }
 
-/* Timeouts */
-.timeouts {
-    display: flex;
-    gap: 5px;
-    margin-top: 4px;
+// --- LOGO UPLOAD FUNCTION ---
+function uploadLogo(teamNum) {
+    const fileInput = document.getElementById(`file-upload-${teamNum}`);
+    const imgElement = document.getElementById(`team-img-${teamNum}`);
+    
+    // Check if a file was selected
+    if (fileInput.files && fileInput.files[0]) {
+        const reader = new FileReader();
+        
+        // When the file is read, update the image src
+        reader.onload = function(e) {
+            imgElement.src = e.target.result;
+        }
+        
+        // Read the image file as a data URL
+        reader.readAsDataURL(fileInput.files[0]);
+    }
 }
 
-.dash {
-    display: block;
-    width: 18px;
-    height: 4px;
-    background-color: rgba(255,255,255,0.3); /* Dimmed by default */
-    transform: skewX(-15deg); /* Sporty angle */
-}
-
-/* Active timeouts are fully white */
-.dash.active {
-    background-color: #fff;
-    box-shadow: 0 0 5px rgba(255,255,255,0.5);
-}
-
-/* --- FOULS COLUMN (Middle) --- */
-.fouls-wrapper {
-    width: 70px;
-    background-color: #161616;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    color: #fff;
-    border-left: 1px solid #000;
-    border-right: 1px solid #000;
-}
-
-.foul-count {
-    font-family: 'Russo One', sans-serif;
-    font-size: 24px;
-    line-height: 1;
-    color: #fff;
-}
-
-.foul-label {
-    font-size: 10px;
-    font-weight: 800;
-    color: #888;
-    margin: 4px 0;
-    letter-spacing: 1px;
-}
-
-/* --- CLOCK COLUMN (Right) --- */
-.clock-wrapper {
-    width: 210px;
-    background: linear-gradient(180deg, #444 0%, #222 100%);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    color: #fff;
-    position: relative;
-}
-
-.game-clock {
-    font-family: 'Russo One', sans-serif;
-    font-size: 52px;
-    line-height: 1;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-    margin-top: -5px;
-}
-
-.sub-clock {
-    display: flex;
-    width: 100%;
-    justify-content: center;
-    gap: 15px;
-    margin-top: 2px;
-    align-items: baseline;
-}
-
-.period {
-    font-family: 'Russo One', sans-serif;
-    font-size: 22px;
-    color: #bbb;
-}
-
-.period .th {
-    font-size: 14px;
-    margin-left: 2px;
-}
-
-.shot-clock {
-    font-family: 'Russo One', sans-serif;
-    font-size: 28px;
-    color: #fff; /* White by default */
-}
-
-.shot-clock.low-time {
-    color: #ff3b3b; /* Red when low */
-    text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
-}
-
-
-/* === CONTROL PANEL FIXES === */
-
-.controls {
-    background-color: #1a1a1a;
-    padding: 20px;
-    border-radius: 15px;
-    display: grid;
-    /* Fixed widths: Side columns 180px, Middle column 220px */
-    grid-template-columns: 180px 220px 180px; 
-    gap: 15px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-    border: 1px solid #333;
-    width: auto; /* Let grid define width */
-}
-
-.control-group {
-    background-color: #252525;
-    padding: 15px;
-    border-radius: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px; /* Space between elements */
-}
-
-.control-group h3 {
-    color: #888;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    text-align: center;
-    margin-bottom: 5px;
-    border-bottom: 1px solid #333;
-    padding-bottom: 5px;
-}
-
-/* --- BUTTONS & INPUTS --- */
-button {
-    border: none;
-    padding: 10px;
-    border-radius: 6px;
-    font-weight: bold;
-    cursor: pointer;
-    font-family: 'Roboto Condensed', sans-serif;
-    font-size: 13px;
-    background-color: #444;
-    color: #ddd;
-    transition: 0.2s;
-}
-button:hover { background-color: #555; color: #fff; }
-button:active { transform: scale(0.96); }
-
-/* Grid for Points (+1, +2, +3) */
-.btn-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 5px;
-    margin-bottom: 5px;
-}
-.btn-grid .minus { grid-column: span 3; } /* -1 button takes full width */
-
-/* Row for side-by-side buttons */
-.row {
-    display: flex;
-    gap: 5px;
-}
-.row button { flex: 1; } /* Even width buttons */
-
-/* --- SPECIAL BUTTON COLORS --- */
-.start-btn { background-color: #28a745; color: white; width: 100%; }
-.start-btn:hover { background-color: #218838; }
-
-.stop-all { background-color: #dc3545; color: white; margin-top: 5px; width: 100%;}
-.stop-all:hover { background-color: #c82333; }
-
-.new-game-btn { 
-    background-color: #ff9800; 
-    color: white; 
-    margin-top: 10px; 
-    width: 100%; 
-    font-weight: 800;
-}
-.new-game-btn:hover { background-color: #e68a00; }
-
-.minus { background-color: #3e2020; color: #ffadad; }
-.minus:hover { background-color: #5a2e2e; }
-
-/* --- INPUTS FIXES --- */
-.style-inputs input[type="text"] {
-    width: 100%; /* Fix cut-off text */
-    background: #111;
-    border: 1px solid #444;
-    color: #fff;
-    padding: 6px;
-    border-radius: 4px;
-    margin-bottom: 5px;
-    font-size: 11px;
-}
-
-.file-label { font-size: 10px; color: #aaa; margin-bottom: 3px; display: block;}
-input[type="file"] { font-size: 10px; width: 100%; margin-bottom: 5px; }
-
-.time-inputs {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 5px;
-    margin-bottom: 5px;
-    color: white;
-    font-weight: bold;
-}
-.time-inputs input {
-    width: 45px;
-    text-align: center;
-    background: #111;
-    color: #fff;
-    border: 1px solid #444;
-    padding: 8px;
-    border-radius: 4px;
-    font-size: 14px;
-}
-.set-btn {
-    background-color: #007bff;
-    color: white;
-    padding: 8px 15px;
-    width: auto;
-}
-
-.clock-display {
-    background: #000;
-    color: #fff;
-    font-family: 'Russo One', sans-serif;
-    font-size: 32px;
-    text-align: center;
-    padding: 10px;
-    border-radius: 6px;
-    border: 1px solid #333;
-}
-
-.label-row {
-    font-size: 9px;
-    color: #666;
-    font-weight: bold;
-    margin-top: 5px;
-    text-transform: uppercase;
-}
-
-hr { border: 0; border-top: 1px solid #333; margin: 10px 0; }
