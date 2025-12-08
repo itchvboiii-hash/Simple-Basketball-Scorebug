@@ -3,125 +3,171 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SImple Basketball Scorebug</title>
+    <title>NBA Scoreboard Controller</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700&family=Russo+One&display=swap" rel="stylesheet">
 </head>
 <body>
 
-    <div class="main-wrapper">
-        <div class="scorebug-container">
-            <div class="team-section home-container">
-                <div class="branding-box home-brand" id="home-bg-panel">
-                    <img src="https://via.placeholder.com/40/ffffff/000000?text=H" id="home-logo-img" class="team-logo" alt="H">
-                    <div class="team-name" id="home-name"></div>
-                </div>
-                <div class="poss-arrow" id="home-poss"></div>
-                <div class="team-score" id="home-score">0</div>
-            </div>
-
-            <div class="team-section away-container">
-                <div class="team-score" id="away-score">0</div>
-                <div class="poss-arrow" id="away-poss"></div>
-                <div class="branding-box away-brand" id="away-bg-panel">
-                    <img src="https://via.placeholder.com/40/ffffff/000000?text=A" id="away-logo-img" class="team-logo" alt="A">
-                    <div class="team-name" id="away-name"></div>
-                </div>
-            </div>
-
-            <div class="info-section">
-                <div class="period-text" id="period-display">1st Qtr</div>
-                <div class="game-clock" id="game-timer">12:00</div>
-            </div>
-
-            <div class="shot-clock-section">
-                <div id="shot-timer">24</div>
-            </div>
-        </div>
-
-        <div class="controls-container">
-            <div class="control-group">
-                <h4>HOME TEAM</h4>
-                <input type="text" placeholder="Name" oninput="updateTeamName('home', this.value)">
+    <div class="main-container">
+        
+        <div class="scoreboard">
+            
+            <div class="teams-wrapper">
                 
-                <div class="color-presets">
-                    <div class="cp-btn" style="background:#CE1141;" onclick="updateTeamColor('home', '#CE1141')" title="Red"></div>
-                    <div class="cp-btn" style="background:#002D62;" onclick="updateTeamColor('home', '#002D62')" title="Navy"></div>
-                    <div class="cp-btn" style="background:#FDB927;" onclick="updateTeamColor('home', '#FDB927')" title="Yellow"></div>
-                    <div class="cp-btn" style="background:#552583;" onclick="updateTeamColor('home', '#552583')" title="Purple"></div>
-                    <div class="cp-btn" style="background:#007A33;" onclick="updateTeamColor('home', '#007A33')" title="Green"></div>
-                    <div class="cp-btn" style="background:#000000;" onclick="updateTeamColor('home', '#000000')" title="Black"></div>
-                </div>
-                <input type="color" value="#d12f3a" oninput="updateTeamColor('home', this.value)">
-
-                 <label class="file-upload">
-                    Upload Logo
-                    <input type="file" accept="image/*" onchange="uploadLogo('home', this)">
-                </label>
-                <button class="btn-gray" onclick="setPossession('home')">POSS [A]</button>
-                <div class="score-buttons">
-                    <button class="btn-red" onclick="addScore('home', -1)">-1 [Q]</button>
-                    <button onclick="addScore('home', 1)">+1 [1]</button>
-                    <button onclick="addScore('home', 2)">+2 [2]</button>
-                    <button onclick="addScore('home', 3)">+3 [3]</button>
-                </div>
-            </div>
-
-            <div class="control-group clock-ctrl">
-                <h4>GAME CONTROL</h4>
-                <button id="pause-btn" class="btn-blue" onclick="togglePause()">PAUSE [SPACE]</button>
-                
-                <button class="btn-red" style="margin-top:5px; font-size:10px;" onclick="resetGame()">NEW GAME (RESET)</button>
-
-                <div class="time-editor">
-                    <div class="time-inputs">
-                        <input type="number" id="edit-min" placeholder="MM" min="0" max="60">
-                        <span>:</span>
-                        <input type="number" id="edit-sec" placeholder="SS" min="0" max="59">
+                <div class="team-row warriors" id="team-row-1">
+                    <div class="logo-box">
+                        <img id="team-img-1" src="" alt="Team 1">
                     </div>
-                    <input type="text" id="edit-period" placeholder="Period">
-                    <button class="btn-gray" onclick="setCustomTime()">SET TIME</button>
+                    <div class="score-box">
+                        <div class="score" id="score-1">90</div>
+                        <div class="timeouts" id="timeouts-1">
+                            <span class="dash" id="t1-0"></span>
+                            <span class="dash" id="t1-1"></span>
+                            <span class="dash" id="t1-2"></span>
+                        </div>
+                    </div>
                 </div>
 
-                <div style="height: 10px;"></div>
-
-                <h4>SHOT CLOCK</h4>
-                <div class="score-buttons">
-                    <button class="btn-yellow" onclick="resetShotClock(24)">24 [S]</button>
-                    <button class="btn-yellow" onclick="resetShotClock(14)">14 [D]</button>
+                <div class="team-row bulls" id="team-row-2">
+                    <div class="logo-box">
+                        <img id="team-img-2" src="" alt="Team 2">
+                    </div>
+                    <div class="score-box">
+                        <div class="score" id="score-2">79</div>
+                        <div class="timeouts" id="timeouts-2">
+                            <span class="dash" id="t2-0"></span>
+                            <span class="dash" id="t2-1"></span>
+                            <span class="dash active" id="t2-2"></span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="control-group">
-                <h4>AWAY TEAM</h4>
-                <input type="text" placeholder="Name" oninput="updateTeamName('away', this.value)">
-                
-                <div class="color-presets">
-                    <div class="cp-btn" style="background:#CE1141;" onclick="updateTeamColor('away', '#CE1141')" title="Red"></div>
-                    <div class="cp-btn" style="background:#002D62;" onclick="updateTeamColor('away', '#002D62')" title="Navy"></div>
-                    <div class="cp-btn" style="background:#FDB927;" onclick="updateTeamColor('away', '#FDB927')" title="Yellow"></div>
-                    <div class="cp-btn" style="background:#552583;" onclick="updateTeamColor('away', '#552583')" title="Purple"></div>
-                    <div class="cp-btn" style="background:#007A33;" onclick="updateTeamColor('away', '#007A33')" title="Green"></div>
-                    <div class="cp-btn" style="background:#000000;" onclick="updateTeamColor('away', '#000000')" title="Black"></div>
-                </div>
-                <input type="color" value="#2b6eff" oninput="updateTeamColor('away', this.value)">
+            <div class="fouls-wrapper">
+                <div class="foul-count" id="fouls-1">1</div>
+                <div class="foul-label">FOULS</div>
+                <div class="foul-count" id="fouls-2">0</div>
+            </div>
 
-                 <label class="file-upload">
-                    Upload Logo
-                    <input type="file" accept="image/*" onchange="uploadLogo('away', this)">
-                </label>
-                <button class="btn-gray" onclick="setPossession('away')">POSS [L]</button>
-                <div class="score-buttons">
-                    <button class="btn-red" onclick="addScore('away', -1)">-1 [P]</button>
-                    <button onclick="addScore('away', 1)">+1 [8]</button>
-                    <button onclick="addScore('away', 2)">+2 [9]</button>
-                    <button onclick="addScore('away', 3)">+3 [0]</button>
+            <div class="clock-wrapper">
+                <div class="game-clock" id="game-clock-display">12:00</div>
+                <div class="sub-clock">
+                    <span class="period">4<span class="th">TH</span></span>
+                    <span class="shot-clock" id="shot-clock">:12</span>
                 </div>
             </div>
         </div>
+<div class="controls">
+    
+    <div class="control-group">
+        <h3>Top Team</h3>
+        
+        <div class="style-inputs">
+            <input type="text" id="input-url-1" placeholder="Paste Logo URL">
+            
+            <label class="file-label">Upload Logo:</label>
+            <input type="file" id="file-upload-1" accept="image/*" onchange="uploadLogo(1)">
 
+            <div class="color-row">
+                <input type="color" id="input-color-1" value="#1d428a">
+                <button class="sm-btn" onclick="updateTeamStyle(1)">Set Color</button>
+            </div>
+        </div>
+        <hr>
+
+        <div class="label-row">POINTS</div>
+        <div class="btn-grid">
+            <button onclick="updateScore(1, 1)">+1</button>
+            <button onclick="updateScore(1, 2)">+2</button>
+            <button onclick="updateScore(1, 3)">+3</button>
+            <button class="minus" onclick="updateScore(1, -1)">-1</button>
+        </div>
+
+        <div class="label-row">FOULS</div>
+        <div class="row">
+            <button class="minus" onclick="updateFouls(1, -1)">-</button>
+            <button onclick="updateFouls(1, 1)">+</button>
+        </div>
+
+        <div class="label-row">TIMEOUTS</div>
+        <div class="row">
+            <button onclick="toggleTimeout(1, 0)">1</button>
+            <button onclick="toggleTimeout(1, 1)">2</button>
+            <button onclick="toggleTimeout(1, 2)">3</button>
+        </div>
+    </div>
+
+    <div class="control-group clock-controls">
+        <h3>Game Clock</h3>
+        
+        <div class="time-inputs">
+            <input type="number" id="input-min" placeholder="12" value="12">
+            <span>:</span>
+            <input type="number" id="input-sec" placeholder="00" value="00">
+            <button class="set-btn" onclick="setGameTime()">Set</button>
+        </div>
+        
+        <button class="start-btn" id="btn-game-toggle" onclick="toggleGameClock()">Start Game</button>
+        
+        <hr>
+        
+        <h3>Shot Clock</h3>
+        <div class="clock-display" id="shot-clock-display">24</div>
+        
+        <button class="start-btn" onclick="toggleShotClock()">Start / Stop</button>
+        
+        <div class="row">
+            <button onclick="resetShotClock(24)">Reset 24</button>
+            <button onclick="resetShotClock(14)">Reset 14</button>
+        </div>
+        
+        <hr>
+
+        <button class="stop-all" onclick="stopAllClocks()">STOP ALL CLOCKS</button>
+        <button class="new-game-btn" onclick="resetNewGame()">NEW GAME (RESET)</button>
+    </div>
+
+    <div class="control-group">
+        <h3>Bottom Team</h3>
+        
+        <div class="style-inputs">
+            <input type="text" id="input-url-2" placeholder="Paste Logo URL">
+            
+            <label class="file-label">Upload Logo:</label>
+            <input type="file" id="file-upload-2" accept="image/*" onchange="uploadLogo(2)">
+
+            <div class="color-row">
+                <input type="color" id="input-color-2" value="#ce1141">
+                <button class="sm-btn" onclick="updateTeamStyle(2)">Set Color</button>
+            </div>
+        </div>
+        <hr>
+
+        <div class="label-row">POINTS</div>
+        <div class="btn-grid">
+            <button onclick="updateScore(2, 1)">+1</button>
+            <button onclick="updateScore(2, 2)">+2</button>
+            <button onclick="updateScore(2, 3)">+3</button>
+            <button class="minus" onclick="updateScore(2, -1)">-1</button>
+        </div>
+
+        <div class="label-row">FOULS</div>
+        <div class="row">
+            <button class="minus" onclick="updateFouls(2, -1)">-</button>
+            <button onclick="updateFouls(2, 1)">+</button>
+        </div>
+
+        <div class="label-row">TIMEOUTS</div>
+        <div class="row">
+            <button onclick="toggleTimeout(2, 0)">1</button>
+            <button onclick="toggleTimeout(2, 1)">2</button>
+            <button onclick="toggleTimeout(2, 2)">3</button>
+        </div>
+    </div>
+
+</div>
 
     <script src="script.js"></script>
 </body>
-
 </html>
