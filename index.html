@@ -1,13 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Scorebug for livestream</title>
+    <title>Simple Scoreboard</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700&family=Russo+One&display=swap" rel="stylesheet">
 </head>
 <body>
+
+    <div class="wireless-panel">
+    <div id="host-section">
+        <span class="status-label">This Screen's ID:</span>
+        <span id="my-id">...</span>
+        <span class="status-text">(Type this on your phone)</span>
+    </div>
+    <div id="remote-section">
+        <input type="text" id="remote-id-input" placeholder="Enter Host ID">
+        <button onclick="connectToHost()">Connect Wireless</button>
+    </div>
+    <div id="connection-status">Status: Offline</div>
+</div>
+    
 
     <div class="main-container">
         
@@ -171,4 +186,3 @@
     <script src="script.js"></script>
 </body>
 </html>
-
