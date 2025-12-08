@@ -1,308 +1,347 @@
-// --- Configuration ---
-let gameTime = { minutes: 12, seconds: 0 };
-let shotClock = 24;
-let isGameOver = false;
-let isPaused = true; // FORCE PAUSE ON LOAD
-let timerInterval = null; 
-let possession = 'none';
-let homeScoreVal = 0;
-let awayScoreVal = 0;
-let homeLogoSrc = ''; 
-let awayLogoSrc = '';
-
-// --- DOM Elements ---
-const gameTimerEl = document.getElementById('game-timer');
-const shotTimerEl = document.getElementById('shot-timer');
-const homeScoreEl = document.getElementById('home-score');
-const awayScoreEl = document.getElementById('away-score');
-const periodDisplayEl = document.getElementById('period-display');
-const peerIdDisplay = document.getElementById('my-peer-id');
-const homePossEl = document.getElementById('home-poss');
-const awayPossEl = document.getElementById('away-poss');
-const summaryInputEl = document.getElementById('summary-input');
-const pauseBtnEl = document.getElementById('pause-btn'); // Get Pause Button
-
-const channel = new BroadcastChannel('nba_scorebug_channel');
-
-// --- WIRELESS ---
-const peer = new Peer(null, { debug: 2 });
-peer.on('open', (id) => { if(peerIdDisplay) peerIdDisplay.textContent = id; });
-peer.on('connection', (conn) => {
-    conn.on('data', (data) => { handleRemoteCommand(data); });
-});
-
-function handleRemoteCommand(data) {
-    if (data.type === 'score') addScore(data.team, data.points);
-    else if (data.type === 'shotclock') resetShotClock(data.seconds);
-    else if (data.type === 'pause') togglePause();
-    else if (data.type === 'customTime') setCustomTimeData(data.min, data.sec, data.period);
-    else if (data.type === 'teamUpdate') {
-        updateTeamName(data.team, data.name);
-        updateTeamColor(data.team, data.color);
-    }
-    else if (data.type === 'possession') setPossession(data.team);
-    else if (data.type === 'summary') triggerSummary(); 
+/* === 1. RESET & BASE LAYOUT === */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
-// --- STATE MANAGEMENT ---
-function saveState() {
-    const state = {
-        gameTime, shotClock, homeScoreVal, awayScoreVal, possession,
-        homeName: document.getElementById('home-name').textContent,
-        awayName: document.getElementById('away-name').textContent,
-        period: periodDisplayEl.textContent
-    };
-    localStorage.setItem('scorebug_state', JSON.stringify(state));
+body {
+    /* Dark background to simulate editing software/OBS */
+    background-color: #121212; 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Roboto Condensed', sans-serif;
+    padding: 40px 0;
 }
 
-function loadState() {
-    const saved = localStorage.getItem('scorebug_state');
-    if (saved) {
-        try {
-            const state = JSON.parse(saved);
-            gameTime = state.gameTime;
-            shotClock = state.shotClock;
-            homeScoreVal = state.homeScoreVal;
-            awayScoreVal = state.awayScoreVal;
-            possession = state.possession;
-            
-            // Restore UI
-            document.getElementById('home-name').textContent = state.homeName;
-            document.getElementById('away-name').textContent = state.awayName;
-            periodDisplayEl.textContent = state.period;
-            
-            homeScoreEl.textContent = homeScoreVal;
-            awayScoreEl.textContent = awayScoreVal;
-            
-            setPossession(possession);
-        } catch(e) { console.log("Error loading state", e); }
-    }
+.main-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 50px; /* Space between scoreboard and controls */
 }
 
-// --- RESET GAME ---
-function resetGame() {
-    if(confirm("Are you sure? This will reset scores and time to 0.")) {
-        gameTime = { minutes: 12, seconds: 0 };
-        shotClock = 24;
-        homeScoreVal = 0;
-        awayScoreVal = 0;
-        possession = 'none';
-        
-        // Force Pause
-        isPaused = true;
-        stopTimer();
-        updatePauseButtonUI(); // Update button text
-
-        homeScoreEl.textContent = 0;
-        awayScoreEl.textContent = 0;
-        periodDisplayEl.textContent = "1st Qtr";
-        setPossession('none');
-        
-        localStorage.removeItem('scorebug_state');
-        updateDisplay();
-        broadcastData();
-    }
+/* === 2. THE SCOREBOARD (The "Intended Design") === */
+.scoreboard {
+    display: flex;
+    width: 600px; /* Fixed width for standard aspect ratio */
+    height: 110px;
+    background: #000;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    overflow: hidden; /* Ensures rounded corners if added */
+    user-select: none; /* Prevents highlighting text */
+    border: 1px solid #333;
 }
 
-function broadcastData() {
-    const hName = document.getElementById('home-name').textContent;
-    const aName = document.getElementById('away-name').textContent;
-    channel.postMessage({
-        type: 'update',
-        homeScore: homeScoreVal,
-        awayScore: awayScoreVal,
-        homeName: hName, awayName: aName,
-        homeLogo: homeLogoSrc, awayLogo: awayLogoSrc
-    });
+/* --- TEAMS COLUMN (Left) --- */
+.teams-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 320px; /* Majority of width */
 }
 
-function triggerSummary() {
-    broadcastData();
-    let titleText = "END OF QUARTER";
-    if(summaryInputEl) titleText = summaryInputEl.value.toUpperCase();
-    channel.postMessage({ type: 'toggle', title: titleText });
+.team-row {
+    flex: 1; /* 50% Height each */
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    position: relative;
+    transition: background 0.3s ease;
 }
 
-// --- TIMER FUNCTIONS ---
-function formatTime(min, sec) {
-    const formattedSec = sec < 10 ? `0${sec}` : sec;
-    return `${min}:${formattedSec}`;
+/* Default Colors (If not overridden by JS) */
+.warriors {
+    background: linear-gradient(90deg, #002b5c 0%, #003da5 100%);
+    border-bottom: 1px solid rgba(0,0,0,0.2);
 }
 
-function adjustColor(color, amount) {
-    return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
+.bulls {
+    background: linear-gradient(90deg, #5c0015 0%, #ce1141 100%);
 }
 
-function startTimer() {
-    if (timerInterval) clearInterval(timerInterval);
-    timerInterval = setInterval(updateClock, 1000);
-}
-function stopTimer() { if (timerInterval) clearInterval(timerInterval); }
-
-function updateClock() {
-    if (isGameOver || isPaused) return;
-    if (shotClock > 0) shotClock--;
-    if (gameTime.seconds > 0) {
-        gameTime.seconds--;
-    } else {
-        if (gameTime.minutes > 0) {
-            gameTime.minutes--;
-            gameTime.seconds = 59;
-        } else {
-            isGameOver = true;
-            stopTimer(); 
-            gameTimerEl.style.color = "red";
-        }
-    }
-    updateDisplay();
+/* Logos */
+.logo-box {
+    width: 60px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-function updateDisplay() {
-    gameTimerEl.textContent = formatTime(gameTime.minutes, gameTime.seconds);
-    shotTimerEl.textContent = shotClock;
-    if (shotClock <= 5) shotTimerEl.style.color = "red";
-    else shotTimerEl.style.color = "white";
-    saveState();
+.logo-box img {
+    height: 45px;
+    width: auto;
+    filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.3));
 }
 
-// --- CONTROLS ---
-
-function togglePause() {
-    isPaused = !isPaused;
-    updatePauseButtonUI(); // Update text based on state
-    
-    if (isPaused) {
-        stopTimer(); 
-    } else {
-        startTimer(); 
-    }
-    saveState();
+/* Scores */
+.score-box {
+    flex-grow: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end; /* Push to right */
+    justify-content: center;
+    padding-right: 15px;
 }
 
-function updatePauseButtonUI() {
-    if (isPaused) {
-        pauseBtnEl.textContent = "RESUME [SPACE]";
-        pauseBtnEl.style.backgroundColor = "#28a745"; // Green
-    } else {
-        pauseBtnEl.textContent = "PAUSE [SPACE]";
-        pauseBtnEl.style.backgroundColor = "#007bff"; // Blue
-    }
+.score {
+    font-family: 'Russo One', sans-serif;
+    font-size: 44px;
+    color: #fff;
+    line-height: 0.9;
+    text-shadow: 2px 2px 0px rgba(0,0,0,0.4);
+    z-index: 2;
 }
 
-function resetShotClock(seconds) {
-    shotClock = seconds;
-    updateDisplay();
-    // Only restart timer if we were ALREADY running
-    if (!isPaused && !isGameOver) startTimer();
+/* Timeouts */
+.timeouts {
+    display: flex;
+    gap: 5px;
+    margin-top: 4px;
 }
 
-function addScore(team, points) {
-    if (team === 'home') {
-        homeScoreVal += points;
-        if(homeScoreVal < 0) homeScoreVal = 0; 
-        homeScoreEl.textContent = homeScoreVal;
-    } else if (team === 'away') {
-        awayScoreVal += points;
-        if(awayScoreVal < 0) awayScoreVal = 0;
-        awayScoreEl.textContent = awayScoreVal;
-    }
-    saveState();
-    broadcastData();
+.dash {
+    display: block;
+    width: 18px;
+    height: 4px;
+    background-color: rgba(255,255,255,0.3); /* Dimmed by default */
+    transform: skewX(-15deg); /* Sporty angle */
 }
 
-function updateTeamName(team, name) {
-    const elementId = team === 'home' ? 'home-name' : 'away-name';
-    document.getElementById(elementId).textContent = name.toUpperCase();
-    saveState();
-    broadcastData();
+/* Active timeouts are fully white */
+.dash.active {
+    background-color: #fff;
+    box-shadow: 0 0 5px rgba(255,255,255,0.5);
 }
 
-function updateTeamColor(team, color) {
-    const elementId = team === 'home' ? 'home-bg-panel' : 'away-bg-panel';
-    const darkerColor = adjustColor(color, -60); 
-    document.getElementById(elementId).style.background = `linear-gradient(to bottom, ${color} 0%, ${darkerColor} 100%)`;
+/* --- FOULS COLUMN (Middle) --- */
+.fouls-wrapper {
+    width: 70px;
+    background-color: #161616;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    border-left: 1px solid #000;
+    border-right: 1px solid #000;
 }
 
-function setPossession(team) {
-    if (possession === team) {
-        possession = 'none';
-        homePossEl.style.display = 'none';
-        awayPossEl.style.display = 'none';
-    } else {
-        possession = team;
-        if (team === 'home') {
-            homePossEl.style.display = 'block';
-            awayPossEl.style.display = 'none';
-        } else {
-            homePossEl.style.display = 'none';
-            awayPossEl.style.display = 'block';
-        }
-    }
-    saveState();
+.foul-count {
+    font-family: 'Russo One', sans-serif;
+    font-size: 24px;
+    line-height: 1;
+    color: #fff;
 }
 
-function setCustomTime() {
-    const min = document.getElementById('edit-min').value;
-    const sec = document.getElementById('edit-sec').value;
-    const period = document.getElementById('edit-period').value;
-    setCustomTimeData(min || null, sec || null, period);
+.foul-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: #888;
+    margin: 4px 0;
+    letter-spacing: 1px;
 }
 
-function setCustomTimeData(min, sec, period) {
-    if (min !== null) gameTime.minutes = parseInt(min);
-    if (sec !== null) gameTime.seconds = parseInt(sec);
-    if (period) periodDisplayEl.textContent = period;
-    if (gameTime.minutes > 0 || gameTime.seconds > 0) {
-        isGameOver = false;
-        gameTimerEl.style.color = "#FFD700";
-    }
-    updateDisplay();
+/* --- CLOCK COLUMN (Right) --- */
+.clock-wrapper {
+    width: 210px;
+    background: linear-gradient(180deg, #444 0%, #222 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    position: relative;
 }
 
-function uploadLogo(team, input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            if (team === 'home') homeLogoSrc = e.target.result;
-            else awayLogoSrc = e.target.result;
-            const imgId = team === 'home' ? 'home-logo-img' : 'away-logo-img';
-            document.getElementById(imgId).src = e.target.result;
-            broadcastData();
-        }
-        reader.readAsDataURL(input.files[0]);
-    }
+.game-clock {
+    font-family: 'Russo One', sans-serif;
+    font-size: 52px;
+    line-height: 1;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    margin-top: -5px;
 }
 
-// --- HOTKEYS ---
-document.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    switch(e.key.toLowerCase()) {
-        case ' ': e.preventDefault(); togglePause(); break;
-        case '1': addScore('home', 1); break;
-        case '2': addScore('home', 2); break;
-        case '3': addScore('home', 3); break;
-        case 'q': addScore('home', -1); break;
-        case 'a': setPossession('home'); break;
-        case '8': addScore('away', 1); break;
-        case '9': addScore('away', 2); break;
-        case '0': addScore('away', 3); break;
-        case 'p': addScore('away', -1); break;
-        case 'l': setPossession('away'); break;
-        case 's': resetShotClock(24); break;
-        case 'd': resetShotClock(14); break;
-        case 'm': triggerSummary(); break;
-    }
-});
+.sub-clock {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 2px;
+    align-items: baseline;
+}
 
-// --- INIT ---
-// 1. Load previous data
-loadState(); 
-// 2. Ensure we start PAUSED
-isPaused = true; 
-stopTimer();
-// 3. Update UI to match paused state
-updatePauseButtonUI();
-updateDisplay();
+.period {
+    font-family: 'Russo One', sans-serif;
+    font-size: 22px;
+    color: #bbb;
+}
 
-// 4. Wait for styles/images then broadcast
-setTimeout(broadcastData, 500);
+.period .th {
+    font-size: 14px;
+    margin-left: 2px;
+}
+
+.shot-clock {
+    font-family: 'Russo One', sans-serif;
+    font-size: 28px;
+    color: #fff; /* White by default */
+}
+
+.shot-clock.low-time {
+    color: #ff3b3b; /* Red when low */
+    text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+}
+
+
+/* === CONTROL PANEL FIXES === */
+
+.controls {
+    background-color: #1a1a1a;
+    padding: 20px;
+    border-radius: 15px;
+    display: grid;
+    /* Fixed widths: Side columns 180px, Middle column 220px */
+    grid-template-columns: 180px 220px 180px; 
+    gap: 15px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    border: 1px solid #333;
+    width: auto; /* Let grid define width */
+}
+
+.control-group {
+    background-color: #252525;
+    padding: 15px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Space between elements */
+}
+
+.control-group h3 {
+    color: #888;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    margin-bottom: 5px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 5px;
+}
+
+/* --- BUTTONS & INPUTS --- */
+button {
+    border: none;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: 'Roboto Condensed', sans-serif;
+    font-size: 13px;
+    background-color: #444;
+    color: #ddd;
+    transition: 0.2s;
+}
+button:hover { background-color: #555; color: #fff; }
+button:active { transform: scale(0.96); }
+
+/* Grid for Points (+1, +2, +3) */
+.btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+.btn-grid .minus { grid-column: span 3; } /* -1 button takes full width */
+
+/* Row for side-by-side buttons */
+.row {
+    display: flex;
+    gap: 5px;
+}
+.row button { flex: 1; } /* Even width buttons */
+
+/* --- SPECIAL BUTTON COLORS --- */
+.start-btn { background-color: #28a745; color: white; width: 100%; }
+.start-btn:hover { background-color: #218838; }
+
+.stop-all { background-color: #dc3545; color: white; margin-top: 5px; width: 100%;}
+.stop-all:hover { background-color: #c82333; }
+
+.new-game-btn { 
+    background-color: #ff9800; 
+    color: white; 
+    margin-top: 10px; 
+    width: 100%; 
+    font-weight: 800;
+}
+.new-game-btn:hover { background-color: #e68a00; }
+
+.minus { background-color: #3e2020; color: #ffadad; }
+.minus:hover { background-color: #5a2e2e; }
+
+/* --- INPUTS FIXES --- */
+.style-inputs input[type="text"] {
+    width: 100%; /* Fix cut-off text */
+    background: #111;
+    border: 1px solid #444;
+    color: #fff;
+    padding: 6px;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    font-size: 11px;
+}
+
+.file-label { font-size: 10px; color: #aaa; margin-bottom: 3px; display: block;}
+input[type="file"] { font-size: 10px; width: 100%; margin-bottom: 5px; }
+
+.time-inputs {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 5px;
+    color: white;
+    font-weight: bold;
+}
+.time-inputs input {
+    width: 45px;
+    text-align: center;
+    background: #111;
+    color: #fff;
+    border: 1px solid #444;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+.set-btn {
+    background-color: #007bff;
+    color: white;
+    padding: 8px 15px;
+    width: auto;
+}
+
+.clock-display {
+    background: #000;
+    color: #fff;
+    font-family: 'Russo One', sans-serif;
+    font-size: 32px;
+    text-align: center;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #333;
+}
+
+.label-row {
+    font-size: 9px;
+    color: #666;
+    font-weight: bold;
+    margin-top: 5px;
+    text-transform: uppercase;
+}
+
+hr { border: 0; border-top: 1px solid #333; margin: 10px 0; }
